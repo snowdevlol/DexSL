@@ -13,7 +13,7 @@
 
 local env = getgenv()
 local CONFIG = {
-	Repo = "SEU_USUARIO/SEU_REPO", -- <- troque aqui (ou use DexPP_Config)
+	Repo = "snowdevlol/DexSL", -- <- troque aqui (ou use DexPP_Config)
 	Branch = "main",               -- pode ser um commit hash (evita cache do raw.githubusercontent)
 	Dev = nil,                     -- pasta local na workspace, ex.: "DexPP-StudioLite/"
 }
