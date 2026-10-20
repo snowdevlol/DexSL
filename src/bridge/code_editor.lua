@@ -1,25 +1,33 @@
--- Code Editor (substitui o Notepad do Dex): mobile, realce de sintaxe, salva no SL_CodeTextBox.
+-- Code Editor (Notepad do Dex++): mesmo visual do Dex, botoes Copy / Paste,
+-- realce de sintaxe, numeros de linha e salva no SL_CodeTextBox do Studio Lite.
 local ctx = ...
 local UIS, lp = ctx.UIS, ctx.lp
 
--- 3b) Code Editor (substitui o Notepad do Dex): feito para mobile e ligado ao SL_CodeTextBox
 local function buildEditor()
-	local UIS_ = UIS
-	local THEME = {
-		bg = Color3.fromRGB(24, 25, 29),
-		bar = Color3.fromRGB(31, 33, 38),
-		gutter = Color3.fromRGB(27, 29, 33),
-		btn = Color3.fromRGB(43, 46, 53),
-		text = Color3.fromRGB(232, 234, 238),
-		dim = Color3.fromRGB(139, 145, 156),
-		accent = Color3.fromRGB(67, 133, 235),
-		ok = Color3.fromRGB(111, 205, 145),
-		bad = Color3.fromRGB(231, 92, 92),
+	local rgb = Color3.fromRGB
+	local env = getgenv()
+
+	-- cores iguais as do tema do Dex
+	local TH = {
+		Main1 = rgb(52, 52, 52),
+		Main2 = rgb(45, 45, 45),
+		Outline1 = rgb(33, 33, 33),
+		Button = rgb(60, 60, 60),
+		ButtonHover = rgb(68, 68, 68),
+		ButtonPress = rgb(40, 40, 40),
+		Text = rgb(255, 255, 255),
+		Dim = rgb(127, 127, 127),
+		Back = rgb(36, 36, 36), -- Syntax.Background
+		Gutter = rgb(33, 33, 33),
+		LineNum = rgb(100, 100, 100),
+		Code = rgb(204, 204, 204), -- Syntax.Text
+		Important = rgb(255, 0, 0),
 	}
-	local C = {keyword = "#F86D7C", string = "#ADF195", number = "#FFC600", comment = "#7B8394",
+	local C = {keyword = "#F86D7C", string = "#ADF195", number = "#FFC600", comment = "#666666",
 		builtin = "#84D6F7", func = "#FDFBAC", const = "#FFC600"}
 	local HL_MAX = 12000 -- acima disso o realce desliga sozinho (limite de texto do RichText)
-	local TOP, SYM, STAT = 40, 32, 18
+	local BAR, ROW = 20, 20 -- barra de titulo e linha dos botoes (iguais ao Notepad do Dex)
+	local MINW, MINH = 220, 140
 
 	-- ---------- realce de sintaxe Lua ----------
 	local KW, CONST, BUILTIN = {}, {}, {}
@@ -102,97 +110,99 @@ local function buildEditor()
 		return table.concat(out)
 	end
 
-	-- ---------- interface ----------
+	-- ---------- interface (visual do Dex) ----------
 	local function mk(class, props, parent)
 		local o = Instance.new(class)
 		for k, v in pairs(props) do o[k] = v end
 		o.Parent = parent
 		return o
 	end
-	local CODE_FONT = Font.new("rbxasset://fonts/families/Inconsolata.json")
+	local CODE_FONT = Font.fromEnum(Enum.Font.Code)
 
 	local sg = mk("ScreenGui", {Name = "DexPP_CodeEditor", ResetOnSpawn = false, DisplayOrder = 1000,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false}, lp:WaitForChild("PlayerGui"))
 	pcall(function() sg.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets end)
 
-	local main = mk("Frame", {Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.96, 0.94), BackgroundColor3 = THEME.bg, BorderSizePixel = 0}, sg)
-	mk("UISizeConstraint", {MaxSize = Vector2.new(1100, 760), MinSize = Vector2.new(260, 150)}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, main)
+	local main = mk("Frame", {Name = "Main", Active = true, BackgroundTransparency = 1, BorderSizePixel = 0,
+		Position = UDim2.fromOffset(40, 40), Size = UDim2.fromOffset(500, 400)}, sg)
+	-- sombra/contorno igual ao das janelas do Dex
+	mk("ImageLabel", {Name = "Outlines", BackgroundTransparency = 1, BorderSizePixel = 0, Image = "rbxassetid://1427967925",
+		Position = UDim2.new(0, -5, 0, -5), Size = UDim2.new(1, 10, 1, 10), ScaleType = Enum.ScaleType.Slice,
+		SliceCenter = Rect.new(6, 6, 25, 25)}, main)
+	mk("UICorner", {CornerRadius = UDim.new(0, 4)}, main)
 
-	-- barra de cima: titulo + ferramentas rolaveis + fechar
-	local topBar = mk("Frame", {Size = UDim2.new(1, 0, 0, TOP), BackgroundColor3 = THEME.bar, BorderSizePixel = 0}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, topBar)
-	mk("Frame", {Name = "AccentLine", Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = THEME.accent, BackgroundTransparency = 0.35, BorderSizePixel = 0}, topBar)
-	local titleLabel = mk("TextLabel", {Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0, 112, 1, 0), BackgroundTransparency = 1,
-		Text = "Dex | Notepad", TextColor3 = THEME.text, Font = Enum.Font.GothamBold, TextSize = 13,
+	local content = mk("Frame", {Name = "Content", BackgroundColor3 = TH.Main2, BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 0, BAR), Size = UDim2.new(1, 0, 1, -BAR), ClipsDescendants = true}, main)
+
+	local topBar = mk("TextButton", {Name = "TopBar", AutoButtonColor = false, BackgroundColor3 = TH.Main1, BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, BAR), Text = "", Selectable = false}, main)
+	local titleLabel = mk("TextLabel", {Name = "Title", BackgroundTransparency = 1, Position = UDim2.new(0, 5, 0, 0),
+		Size = UDim2.new(1, -28, 0, BAR), Text = "Notepad", TextColor3 = TH.Text, Font = Enum.Font.SourceSans, TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd}, topBar)
-	local closeBtn = mk("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.new(0, 36, 1, -8),
-		BackgroundColor3 = THEME.bad, Text = "X", TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBold, TextSize = 14,
-		Selectable = false}, topBar)
-	mk("UICorner", {CornerRadius = UDim.new(0, 5)}, closeBtn)
-	local toolbar = mk("ScrollingFrame", {Position = UDim2.new(0, 124, 0, 0), Size = UDim2.new(1, -168, 1, 0), BackgroundTransparency = 1,
-		BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X,
-		ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 0}, topBar)
-	mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6),
-		VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder}, toolbar)
 
-	local function barButton(parent, text, order, minW, color)
-		local b = mk("TextButton", {Text = text, Size = UDim2.new(0, minW or 0, 1, -8), AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = color or THEME.btn, TextColor3 = THEME.text, Font = Enum.Font.GothamMedium, TextSize = 13,
-			LayoutOrder = order, Selectable = false, AutoButtonColor = true}, parent)
-		mk("UICorner", {CornerRadius = UDim.new(0, 5)}, b)
-		mk("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, b)
+	local closeBtn = mk("TextButton", {Name = "Close", AutoButtonColor = false, BackgroundColor3 = TH.Important, BackgroundTransparency = 1,
+		BorderSizePixel = 0, Position = UDim2.new(1, -18, 0, 2), Size = UDim2.fromOffset(16, 16), Text = "", Selectable = false}, topBar)
+	mk("ImageLabel", {BackgroundTransparency = 1, Image = "rbxassetid://5054663650", Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.fromOffset(10, 10)}, closeBtn)
+	mk("UICorner", {CornerRadius = UDim.new(0, 4)}, closeBtn)
+	closeBtn.MouseEnter:Connect(function() closeBtn.BackgroundTransparency = 0 end)
+	closeBtn.MouseLeave:Connect(function() closeBtn.BackgroundTransparency = 1 end)
+
+	-- linha dos botoes (Copy | Paste), transparentes como no Notepad do Dex
+	local function flatButton(text, xScale, ok)
+		local b = mk("TextButton", {BackgroundColor3 = TH.ButtonHover, BackgroundTransparency = 1, BorderSizePixel = 0,
+			AutoButtonColor = false, Position = UDim2.new(xScale, 0, 0, 0), Size = UDim2.new(0.5, 0, 0, ROW), Text = text,
+			TextColor3 = ok and TH.Text or TH.Dim, Font = Enum.Font.SourceSans, TextSize = 14, Selectable = false}, content)
+		if ok then
+			b.MouseEnter:Connect(function() b.BackgroundColor3 = TH.ButtonHover; b.BackgroundTransparency = 0 end)
+			b.MouseLeave:Connect(function() b.BackgroundTransparency = 1 end)
+			b.MouseButton1Down:Connect(function() b.BackgroundColor3 = TH.ButtonPress; b.BackgroundTransparency = 0 end)
+			b.MouseButton1Up:Connect(function() b.BackgroundColor3 = TH.ButtonHover end)
+			b.InputEnded:Connect(function(i)
+				if i.UserInputType == Enum.UserInputType.Touch then b.BackgroundTransparency = 1 end
+			end)
+		else
+			b.Interactable = false
+		end
 		return b
 	end
+	local hasCopy = (env.setclipboard or env.toclipboard or setclipboard or toclipboard) ~= nil
+	local hasPaste = (env.getclipboard or getclipboard) ~= nil
+	local bCopy = flatButton("Copy", 0, hasCopy)
+	local bPaste = flatButton("Paste", 0.5, hasPaste)
+	mk("Frame", {BackgroundColor3 = TH.Outline1, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, ROW), Size = UDim2.new(1, 0, 0, 1)}, content)
 
 	-- area do codigo: numeros de linha + rolagem
-	local area = mk("Frame", {Position = UDim2.new(0, 0, 0, TOP), Size = UDim2.new(1, 0, 1, -(TOP + SYM + STAT)),
-		BackgroundTransparency = 1, ClipsDescendants = true}, main)
-	local gutter = mk("Frame", {Size = UDim2.new(0, 42, 1, 0), BackgroundColor3 = THEME.gutter, BorderSizePixel = 0, ClipsDescendants = true}, area)
+	local area = mk("Frame", {Name = "Area", BackgroundColor3 = TH.Back, BorderSizePixel = 0, ClipsDescendants = true,
+		Position = UDim2.new(0, 0, 0, ROW + 1), Size = UDim2.new(1, 0, 1, -(ROW + 1))}, content)
+	local fontSize = 14
+	local gutterW = 34
+	local gutter = mk("Frame", {Size = UDim2.new(0, gutterW, 1, 0), BackgroundColor3 = TH.Gutter, BorderSizePixel = 0, ClipsDescendants = true}, area)
 	local gutterLabel = mk("TextLabel", {Position = UDim2.new(0, 0, 0, 4), Size = UDim2.new(1, -6, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1, Text = "1", TextColor3 = THEME.dim, FontFace = CODE_FONT, TextSize = 15,
+		BackgroundTransparency = 1, Text = "1", TextColor3 = TH.LineNum, FontFace = CODE_FONT, TextSize = fontSize,
 		TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top}, gutter)
-	local scroller = mk("ScrollingFrame", {Position = UDim2.new(0, 42, 0, 0), Size = UDim2.new(1, -42, 1, 0), BackgroundTransparency = 1,
+	local scroller = mk("ScrollingFrame", {Position = UDim2.new(0, gutterW, 0, 0), Size = UDim2.new(1, -gutterW, 1, 0), BackgroundTransparency = 1,
 		BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.XY,
-		ScrollingDirection = Enum.ScrollingDirection.XY, ScrollBarThickness = 6}, area)
+		ScrollingDirection = Enum.ScrollingDirection.XY, ScrollBarThickness = 6, ScrollBarImageColor3 = rgb(90, 90, 90)}, area)
 	local box = mk("TextBox", {Name = "Code", Position = UDim2.new(0, 6, 0, 4), Size = UDim2.fromOffset(100, 100), AutomaticSize = Enum.AutomaticSize.XY,
-		BackgroundTransparency = 1, Text = "", TextColor3 = THEME.text, FontFace = CODE_FONT, TextSize = 15, MultiLine = true,
+		BackgroundTransparency = 1, Text = "", TextColor3 = TH.Code, FontFace = CODE_FONT, TextSize = fontSize, MultiLine = true,
 		ClearTextOnFocus = false, TextWrapped = false, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 		TextTransparency = 1, PlaceholderText = ""}, scroller)
 	local hlLabel = mk("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", RichText = true,
-		TextColor3 = THEME.text, FontFace = CODE_FONT, TextSize = 15, TextWrapped = false,
+		TextColor3 = TH.Code, FontFace = CODE_FONT, TextSize = fontSize, TextWrapped = false,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Active = false}, box)
 	pcall(function() hlLabel.Interactable = false end)
 
-	-- barra de simbolos (teclado mobile ajuda)
-	local symBar = mk("ScrollingFrame", {Position = UDim2.new(0, 0, 1, -(SYM + STAT)), Size = UDim2.new(1, 0, 0, SYM), BackgroundColor3 = THEME.bar,
-		BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X,
-		ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 0}, main)
-	mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4),
-		VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder}, symBar)
-	mk("UIPadding", {PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)}, symBar)
-
-	local statBar = mk("Frame", {Position = UDim2.new(0, 0, 1, -STAT), Size = UDim2.new(1, 0, 0, STAT), BackgroundColor3 = THEME.bar, BorderSizePixel = 0}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, statBar)
-	local statusLabel = mk("TextLabel", {Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.62, -10, 1, 0), BackgroundTransparency = 1,
-		Text = "", TextColor3 = THEME.dim, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd}, statBar)
-	local infoLabel = mk("TextLabel", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 0), Size = UDim2.new(0.38, 0, 1, 0),
-		BackgroundTransparency = 1, Text = "", TextColor3 = THEME.dim, Font = Enum.Font.Gotham, TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Right}, statBar)
-
-	local function setStatus(msg, color)
-		statusLabel.Text = msg
-		statusLabel.TextColor3 = color or THEME.dim
-	end
+	-- cantinho para redimensionar (como as bordas das janelas do Dex)
+	local grip = mk("TextButton", {Name = "Resize", AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1, Text = "",
+		Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(18, 18), ZIndex = 10, AutoButtonColor = false, Selectable = false}, content)
 
 	-- ---------- estado ----------
 	local cur = {box = nil}
 	local prevText, applying = "", false
-	local hlEnabled, fontSize = true, 15
 	local lastCursor, lnCount, lnCache = 1, 0, ""
-	local hist, hi, lastPush = {""}, 1, 0
+	local rect = {x = 40, y = 40, w = 500, h = 400}
+	local placed = false
 
 	local function lineNumbers(count)
 		if count ~= lnCount then
@@ -203,23 +213,24 @@ local function buildEditor()
 		return lnCache
 	end
 
-	local function updateInfo()
-		local line = 1
-		if #prevText <= 60000 and lastCursor > 1 then
-			local _, nl = prevText:sub(1, lastCursor - 1):gsub("\n", "")
-			line = nl + 1
-		end
-		infoLabel.Text = ("Ln %d/%d | %d car"):format(line, lnCount, #prevText)
+	local function setGutterWidth(count)
+		local w = 14 + #tostring(count) * math.ceil(fontSize * 0.5 + 1)
+		w = math.max(w, 30)
+		if w == gutterW then return end
+		gutterW = w
+		gutter.Size = UDim2.new(0, w, 1, 0)
+		scroller.Position = UDim2.new(0, w, 0, 0)
+		scroller.Size = UDim2.new(1, -w, 1, 0)
 	end
 
 	local function render(text)
 		local _, nl = text:gsub("\n", "")
 		gutterLabel.Text = lineNumbers(nl + 1)
-		local useHl = hlEnabled and #text <= HL_MAX
+		setGutterWidth(nl + 1)
+		local useHl = #text <= HL_MAX
 		box.TextTransparency = useHl and 1 or 0
 		hlLabel.Visible = useHl
 		if useHl then hlLabel.Text = highlight(text) end
-		updateInfo()
 	end
 
 	local hlToken = 0
@@ -235,45 +246,16 @@ local function buildEditor()
 	local function flushSave()
 		local sb = cur.box
 		if not sb then return end
-		if not sb.Parent then
-			cur.box = nil
-			return setStatus("Script removido; nada ligado", THEME.bad)
-		end
+		if not sb.Parent then cur.box = nil; return end
 		local t = prevText
 		if sb.RichText then t = esc(t) end
 		sb.Text = t
-		setStatus("Salvo no script", THEME.ok)
 	end
 	local function scheduleSave()
 		if not cur.box then return end
 		saveToken = saveToken + 1
 		local v = saveToken
-		setStatus("Salvando...", THEME.dim)
 		task.delay(0.35, function() if v == saveToken then flushSave() end end)
-	end
-
-	-- ---------- historico (desfazer/refazer) ----------
-	local function pushHistory(t)
-		if hist[hi] == t then return end
-		for k = #hist, hi + 1, -1 do hist[k] = nil end
-		if os.clock() - lastPush < 0.7 and hi > 1 then
-			hist[hi] = t
-		else
-			hist[#hist + 1] = t
-			hi = #hist
-		end
-		lastPush = os.clock()
-		local maxN = #t > 100000 and 10 or 80
-		while #hist > maxN do table.remove(hist, 1); hi = hi - 1 end
-	end
-
-	local function setTextSilent(t)
-		applying = true
-		box.Text = t
-		applying = false
-		prevText = t
-		render(t)
-		scheduleSave()
 	end
 
 	-- ---------- seguir o cursor ----------
@@ -297,7 +279,7 @@ local function buildEditor()
 		if nx ~= pos.X or ny ~= pos.Y then scroller.CanvasPosition = Vector2.new(nx, ny) end
 	end
 
-	-- ---------- mudancas no texto (auto-indent, tab -> espacos, historico, salvar) ----------
+	-- ---------- mudancas no texto (auto-indent, tab -> espacos, salvar) ----------
 	box:GetPropertyChangedSignal("Text"):Connect(function()
 		if applying then return end
 		local t = box.Text
@@ -346,7 +328,6 @@ local function buildEditor()
 		prevText = newT
 		if cur2 then lastCursor = cur2 end
 		renderSoon(newT)
-		pushHistory(newT)
 		scheduleSave()
 		task.defer(followCaret)
 	end)
@@ -355,16 +336,14 @@ local function buildEditor()
 		local c = box.CursorPosition
 		if c ~= -1 then
 			lastCursor = c
-			updateInfo()
 			task.defer(followCaret)
 		end
 	end)
 
-	-- numeros de linha acompanham a rolagem vertical; caixa de texto preenche a area visivel
-	local function syncGutter()
+	-- numeros de linha acompanham a rolagem; a caixa de texto preenche a area visivel
+	scroller:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
 		gutterLabel.Position = UDim2.new(0, 0, 0, 4 - scroller.CanvasPosition.Y)
-	end
-	scroller:GetPropertyChangedSignal("CanvasPosition"):Connect(syncGutter)
+	end)
 	local function syncMin()
 		local s = scroller.AbsoluteSize
 		box.Size = UDim2.fromOffset(math.max(s.X - 12, 50), math.max(s.Y - 8, 50))
@@ -372,7 +351,66 @@ local function buildEditor()
 	scroller:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncMin)
 	syncMin()
 
-	-- ---------- botoes ----------
+	-- ---------- janela: posicao, tamanho, teclado do celular ----------
+	local function applyRect()
+		local vs = sg.AbsoluteSize
+		if vs.X <= 0 or vs.Y <= 0 then return end
+		local w = math.clamp(rect.w, MINW, math.max(vs.X, MINW))
+		local h = math.clamp(rect.h, MINH, math.max(vs.Y, MINH))
+		local x = math.clamp(rect.x, -(w - 60), math.max(vs.X - 60, 0))
+		local y = math.clamp(rect.y, 0, math.max(vs.Y - BAR, 0))
+		local kb = false
+		pcall(function() kb = UIS.OnScreenKeyboardVisible end)
+		if kb then
+			local ok, kbY = pcall(function() return UIS.OnScreenKeyboardPosition.Y end)
+			if ok and kbY and kbY > 0 then
+				local avail = kbY - sg.AbsolutePosition.Y - 6
+				y = 2
+				h = math.max(math.min(h, avail), 120)
+			end
+		end
+		main.Position = UDim2.fromOffset(x, y)
+		main.Size = UDim2.fromOffset(w, h)
+	end
+	pcall(function() UIS:GetPropertyChangedSignal("OnScreenKeyboardVisible"):Connect(applyRect) end)
+	pcall(function() UIS:GetPropertyChangedSignal("OnScreenKeyboardPosition"):Connect(applyRect) end)
+	pcall(function() UIS:GetPropertyChangedSignal("OnScreenKeyboardSize"):Connect(applyRect) end)
+	sg:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyRect)
+
+	local function isPointer(i)
+		return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
+	end
+	local drag = nil -- {mode, input, start, r}
+	local function beginDrag(mode, input)
+		drag = {mode = mode, input = input, start = input.Position, x = rect.x, y = rect.y, w = rect.w, h = rect.h}
+		-- se o teclado encolheu a janela, parte do tamanho que o usuario esta vendo
+		drag.w, drag.h = main.AbsoluteSize.X, main.AbsoluteSize.Y
+	end
+	topBar.InputBegan:Connect(function(i)
+		if isPointer(i) then beginDrag("move", i) end
+	end)
+	grip.InputBegan:Connect(function(i)
+		if isPointer(i) then beginDrag("size", i) end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if not drag then return end
+		if i == drag.input or (i.UserInputType == Enum.UserInputType.MouseMovement and drag.input.UserInputType == Enum.UserInputType.MouseButton1) then
+			local d = i.Position - drag.start
+			if drag.mode == "move" then
+				rect.x, rect.y = drag.x + d.X, drag.y + d.Y
+			else
+				rect.w, rect.h = math.max(drag.w + d.X, MINW), math.max(drag.h + d.Y, MINH)
+			end
+			applyRect()
+		end
+	end)
+	UIS.InputEnded:Connect(function(i)
+		if drag and (i == drag.input or (i.UserInputType == Enum.UserInputType.MouseButton1 and drag.input.UserInputType == Enum.UserInputType.MouseButton1)) then
+			drag = nil
+		end
+	end)
+
+	-- ---------- botoes: Copy / Paste ----------
 	local function insertAtCursor(str)
 		local t = prevText
 		local pos = math.clamp(lastCursor, 1, #t + 1)
@@ -383,98 +421,31 @@ local function buildEditor()
 		task.defer(function() box.CursorPosition = np end)
 	end
 
-	local function applySize()
-		box.TextSize, hlLabel.TextSize, gutterLabel.TextSize = fontSize, fontSize, fontSize
-		task.defer(function() render(prevText) end)
+	local flashTok = {}
+	local function flash(btn, msg, base)
+		flashTok[btn] = (flashTok[btn] or 0) + 1
+		local v = flashTok[btn]
+		btn.Text = msg
+		task.delay(1, function() if flashTok[btn] == v then btn.Text = base end end)
 	end
 
-	local bRun = barButton(toolbar, "Executar", 1, 0, THEME.accent)
-	local bUndo = barButton(toolbar, "Desfazer", 2)
-	local bRedo = barButton(toolbar, "Refazer", 3)
-	local bCopy = barButton(toolbar, "Copiar", 4)
-	local bPaste = barButton(toolbar, "Colar", 5)
-	local bClear = barButton(toolbar, "Limpar", 6)
-	local bPlus = barButton(toolbar, "A+", 7, 36)
-	local bMinus = barButton(toolbar, "A-", 8, 36)
-	local bHl = barButton(toolbar, "Realce: ON", 9)
-
-	bRun.Activated:Connect(function()
-		local ls = (getgenv and getgenv().loadstring) or loadstring
-		if not ls then return setStatus("loadstring indisponivel neste executor", THEME.bad) end
-		local ok, f, err = pcall(ls, prevText)
-		if not ok or not f then
-			local msg = tostring(ok and err or f)
-			warn("[CodeEditor] " .. msg)
-			return setStatus("Erro: " .. msg:sub(1, 140), THEME.bad)
-		end
-		task.spawn(f)
-		setStatus("Executado", THEME.ok)
+	bCopy.MouseButton1Click:Connect(function()
+		local sc = env.setclipboard or env.toclipboard or setclipboard or toclipboard
+		if not sc then return flash(bCopy, "Copy (indisponivel)", "Copy") end
+		local ok = pcall(sc, prevText)
+		flash(bCopy, ok and "Copied!" or "Copy (erro)", "Copy")
 	end)
-	bUndo.Activated:Connect(function()
-		if hi > 1 then hi = hi - 1; lastPush = 0; setTextSilent(hist[hi]); lastCursor = #prevText + 1 end
-	end)
-	bRedo.Activated:Connect(function()
-		if hi < #hist then hi = hi + 1; lastPush = 0; setTextSilent(hist[hi]); lastCursor = #prevText + 1 end
-	end)
-	bCopy.Activated:Connect(function()
-		local sc = (getgenv and (getgenv().setclipboard or getgenv().toclipboard)) or setclipboard or toclipboard
-		if not sc then return setStatus("Sem suporte a clipboard (segure no texto para copiar)", THEME.bad) end
-		pcall(sc, prevText)
-		setStatus("Codigo copiado", THEME.ok)
-	end)
-	bPaste.Activated:Connect(function()
-		local gc = (getgenv and getgenv().getclipboard) or getclipboard
-		if not gc then return setStatus("Sem getclipboard: segure no texto e use Colar do teclado", THEME.bad) end
+	bPaste.MouseButton1Click:Connect(function()
+		local gc = env.getclipboard or getclipboard
+		if not gc then return flash(bPaste, "Paste (indisponivel)", "Paste") end
 		local ok, s = pcall(gc)
-		if ok and type(s) == "string" and #s > 0 then insertAtCursor(s) end
-	end)
-	bClear.Activated:Connect(function()
-		box.Text = ""
-		lastCursor = 1
-		setStatus("Limpo (use Desfazer para voltar)", THEME.dim)
-	end)
-	bPlus.Activated:Connect(function() fontSize = math.min(fontSize + 1, 26); applySize() end)
-	bMinus.Activated:Connect(function() fontSize = math.max(fontSize - 1, 10); applySize() end)
-	bHl.Activated:Connect(function()
-		hlEnabled = not hlEnabled
-		bHl.Text = hlEnabled and "Realce: ON" or "Realce: OFF"
-		render(prevText)
-	end)
-
-	local symbols = {"Tab", "(", ")", "[", "]", "{", "}", '"', "'", "=", "==", "~=", ".", ",", ":", ";", "#", "+", "-", "*", "/", "%", "<", ">", "_",
-		"local", "function", "end", "then", "do", "if", "return"}
-	for idx, s in ipairs(symbols) do
-		local b = barButton(symBar, s, idx, 34)
-		b.Size = UDim2.new(0, 34, 1, -8)
-		b.TextSize = 14
-		b.Activated:Connect(function() insertAtCursor(s == "Tab" and "    " or s) end)
-	end
-
-	-- ---------- layout: acompanha o teclado do celular ----------
-	local function layout()
-		local kb = false
-		pcall(function() kb = UIS_.OnScreenKeyboardVisible end)
-		statBar.Visible = not kb
-		local bottom = kb and SYM or (SYM + STAT)
-		area.Size = UDim2.new(1, 0, 1, -(TOP + bottom))
-		symBar.Position = UDim2.new(0, 0, 1, -bottom)
-		if kb then
-			local ok, kbY = pcall(function() return UIS_.OnScreenKeyboardPosition.Y end)
-			if ok then
-				local avail = kbY - sg.AbsolutePosition.Y - 8
-				main.AnchorPoint = Vector2.new(0.5, 0)
-				main.Position = UDim2.new(0.5, 0, 0, 4)
-				main.Size = UDim2.new(0.98, 0, 0, math.max(avail, 150))
-				return
-			end
+		if ok and type(s) == "string" and #s > 0 then
+			insertAtCursor(s)
+			flash(bPaste, "Pasted!", "Paste")
+		else
+			flash(bPaste, "Clipboard vazio", "Paste")
 		end
-		main.AnchorPoint = Vector2.new(0.5, 0.5)
-		main.Position = UDim2.fromScale(0.5, 0.5)
-		main.Size = UDim2.fromScale(0.96, 0.94)
-	end
-	pcall(function() UIS_:GetPropertyChangedSignal("OnScreenKeyboardVisible"):Connect(layout) end)
-	pcall(function() UIS_:GetPropertyChangedSignal("OnScreenKeyboardPosition"):Connect(layout) end)
-	pcall(function() UIS_:GetPropertyChangedSignal("OnScreenKeyboardSize"):Connect(layout) end)
+	end)
 
 	-- ---------- API ----------
 	local function Close()
@@ -482,36 +453,37 @@ local function buildEditor()
 		pcall(function() box:ReleaseFocus() end)
 		sg.Enabled = false
 	end
-	closeBtn.Activated:Connect(Close)
+	closeBtn.MouseButton1Click:Connect(Close)
 
 	-- opts: Title, Text, Box (SL_CodeTextBox para salvar), Focus
 	local function Open(opts)
 		opts = opts or {}
 		if cur.box then flushSave() end
 		cur.box = opts.Box
-		titleLabel.Text = opts.Title or "Dex | Notepad"
+		titleLabel.Text = opts.Title and ("Notepad - " .. opts.Title) or "Notepad"
 		local text = (tostring(opts.Text or ""):gsub("\r", ""):gsub("\t", "    "))
 		applying = true
 		box.Text = text
 		applying = false
 		prevText = text
-		hist, hi, lastPush = {text}, 1, 0
 		lastCursor = #text + 1
 		saveToken = saveToken + 1
 		sg.Enabled = true
-		layout()
+		if not placed then
+			placed = true
+			local vs = sg.AbsoluteSize
+			rect.w = math.min(500, math.max(vs.X - 20, MINW))
+			rect.h = math.min(400, math.max(vs.Y - 20, MINH))
+			rect.x = math.floor((vs.X - rect.w) / 2)
+			rect.y = math.floor((vs.Y - rect.h) / 2)
+		end
+		applyRect()
 		scroller.CanvasPosition = Vector2.zero
 		render(text)
-		if cur.box then
-			setStatus("Ligado ao script: salva sozinho", THEME.dim)
-		else
-			setStatus("Sem script ligado: use Executar ou Copiar", THEME.dim)
-		end
 		if text == "" or opts.Focus then task.defer(function() box:CaptureFocus() end) end
 	end
 
-	applySize()
-	getgenv().DexPP_CodeEditor = {Open = Open, Close = Close}
+	env.DexPP_CodeEditor = {Open = Open, Close = Close}
 end
 local okEd, errEd = pcall(buildEditor)
 if not okEd then warn("[DexBridge] Code Editor:", errEd) end
