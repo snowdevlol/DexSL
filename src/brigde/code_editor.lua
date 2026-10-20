@@ -6,20 +6,20 @@ local UIS, lp = ctx.UIS, ctx.lp
 local function buildEditor()
 	local UIS_ = UIS
 	local THEME = {
-		bg = Color3.fromRGB(28, 28, 34),
-		bar = Color3.fromRGB(38, 38, 46),
-		gutter = Color3.fromRGB(33, 33, 40),
-		btn = Color3.fromRGB(54, 54, 66),
-		text = Color3.fromRGB(228, 228, 234),
-		dim = Color3.fromRGB(140, 140, 156),
-		accent = Color3.fromRGB(0, 120, 215),
-		ok = Color3.fromRGB(110, 220, 140),
-		bad = Color3.fromRGB(255, 110, 110),
+		bg = Color3.fromRGB(24, 25, 29),
+		bar = Color3.fromRGB(31, 33, 38),
+		gutter = Color3.fromRGB(27, 29, 33),
+		btn = Color3.fromRGB(43, 46, 53),
+		text = Color3.fromRGB(232, 234, 238),
+		dim = Color3.fromRGB(139, 145, 156),
+		accent = Color3.fromRGB(67, 133, 235),
+		ok = Color3.fromRGB(111, 205, 145),
+		bad = Color3.fromRGB(231, 92, 92),
 	}
 	local C = {keyword = "#F86D7C", string = "#ADF195", number = "#FFC600", comment = "#7B8394",
 		builtin = "#84D6F7", func = "#FDFBAC", const = "#FFC600"}
 	local HL_MAX = 12000 -- acima disso o realce desliga sozinho (limite de texto do RichText)
-	local TOP, SYM, STAT = 36, 32, 18
+	local TOP, SYM, STAT = 40, 32, 18
 
 	-- ---------- realce de sintaxe Lua ----------
 	local KW, CONST, BUILTIN = {}, {}, {}
@@ -118,19 +118,20 @@ local function buildEditor()
 	local main = mk("Frame", {Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.96, 0.94), BackgroundColor3 = THEME.bg, BorderSizePixel = 0}, sg)
 	mk("UISizeConstraint", {MaxSize = Vector2.new(1100, 760), MinSize = Vector2.new(260, 150)}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 10)}, main)
+	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, main)
 
 	-- barra de cima: titulo + ferramentas rolaveis + fechar
 	local topBar = mk("Frame", {Size = UDim2.new(1, 0, 0, TOP), BackgroundColor3 = THEME.bar, BorderSizePixel = 0}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 10)}, topBar)
-	local titleLabel = mk("TextLabel", {Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0, 100, 1, 0), BackgroundTransparency = 1,
-		Text = "Script", TextColor3 = THEME.text, Font = Enum.Font.GothamBold, TextSize = 14,
+	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, topBar)
+	mk("Frame", {Name = "AccentLine", Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = THEME.accent, BackgroundTransparency = 0.35, BorderSizePixel = 0}, topBar)
+	local titleLabel = mk("TextLabel", {Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0, 112, 1, 0), BackgroundTransparency = 1,
+		Text = "Dex | Notepad", TextColor3 = THEME.text, Font = Enum.Font.GothamBold, TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd}, topBar)
 	local closeBtn = mk("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.new(0, 36, 1, -8),
 		BackgroundColor3 = THEME.bad, Text = "X", TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBold, TextSize = 14,
 		Selectable = false}, topBar)
-	mk("UICorner", {CornerRadius = UDim.new(0, 6)}, closeBtn)
-	local toolbar = mk("ScrollingFrame", {Position = UDim2.new(0, 114, 0, 0), Size = UDim2.new(1, -158, 1, 0), BackgroundTransparency = 1,
+	mk("UICorner", {CornerRadius = UDim.new(0, 5)}, closeBtn)
+	local toolbar = mk("ScrollingFrame", {Position = UDim2.new(0, 124, 0, 0), Size = UDim2.new(1, -168, 1, 0), BackgroundTransparency = 1,
 		BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X,
 		ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 0}, topBar)
 	mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6),
@@ -140,7 +141,7 @@ local function buildEditor()
 		local b = mk("TextButton", {Text = text, Size = UDim2.new(0, minW or 0, 1, -8), AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundColor3 = color or THEME.btn, TextColor3 = THEME.text, Font = Enum.Font.GothamMedium, TextSize = 13,
 			LayoutOrder = order, Selectable = false, AutoButtonColor = true}, parent)
-		mk("UICorner", {CornerRadius = UDim.new(0, 6)}, b)
+		mk("UICorner", {CornerRadius = UDim.new(0, 5)}, b)
 		mk("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, b)
 		return b
 	end
@@ -173,7 +174,7 @@ local function buildEditor()
 	mk("UIPadding", {PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)}, symBar)
 
 	local statBar = mk("Frame", {Position = UDim2.new(0, 0, 1, -STAT), Size = UDim2.new(1, 0, 0, STAT), BackgroundColor3 = THEME.bar, BorderSizePixel = 0}, main)
-	mk("UICorner", {CornerRadius = UDim.new(0, 10)}, statBar)
+	mk("UICorner", {CornerRadius = UDim.new(0, 8)}, statBar)
 	local statusLabel = mk("TextLabel", {Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0.62, -10, 1, 0), BackgroundTransparency = 1,
 		Text = "", TextColor3 = THEME.dim, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd}, statBar)
@@ -488,7 +489,7 @@ local function buildEditor()
 		opts = opts or {}
 		if cur.box then flushSave() end
 		cur.box = opts.Box
-		titleLabel.Text = opts.Title or "Script"
+		titleLabel.Text = opts.Title or "Dex | Notepad"
 		local text = (tostring(opts.Text or ""):gsub("\r", ""):gsub("\t", "    "))
 		applying = true
 		box.Text = text
